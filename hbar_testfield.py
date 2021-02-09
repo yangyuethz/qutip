@@ -38,7 +38,7 @@ catch_result=hbar_sequence.num_split_coh_measurement(detuning_L,test_processor,t
 plt.plot(detuning_L,catch_result)
 #%%
 plt.show()
-
+a = 1
 # if 1:
 #     tl=np.linspace(0.1,10,100)
 #     swap_t_list=[]
