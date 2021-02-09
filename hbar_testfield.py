@@ -48,7 +48,9 @@ plt.plot(t_L,catch_result)
 
 # %%
 test_fitter=hbar_fitting.fitter(detuning_L,catch_result)
-test_fitter.fit_multi_peak()
+fit_result=test_fitter.fit_multi_peak()
 # %%
 test_processor.plot_pulses()
+# %%
+fit_result
 # %%

@@ -132,7 +132,7 @@ class fitter(object):
         params = model.make_params(c=0)
         rough_peak_positions =peak_position
         for i, cen in enumerate(rough_peak_positions):
-            peak, pars = add_peak('lz%d' % (i+1), cen)
+            peak, pars = add_peak('lz%d' % (i), cen)
             model = model + peak
             params.update(pars)
 
@@ -143,13 +143,21 @@ class fitter(object):
         plt.plot(x_array, y_array, label='data')
         plt.plot(x_array,y_smooth,label='smooth')
         plt.plot(x_array, result.best_fit, label='best fit')
+
         for name, comp in comps.items():
             if "lz" in name:
                 plt.plot(x_array, comp+comps['bkg'], '--', label=name)
         plt.legend(loc='upper right')
         plt.show()
-        peak_height_list=[]
 
+        peak_height_list=[]
+        peak_center_list=[]
+        peak_width_list=[]
         for i in range(len(peak_position)):
-            peak_height_list.append( result.params['lz%dheight'%(len(peak_position)-i)].value)
-        peak_height_list=np.abs(np.array(peak_height_list))
+            peak_height_list.append( result.params['lz%dheight'%(i)].value)
+            peak_center_list.append( result.params['lz%dcenter'%(i)].value)
+            peak_width_list.append(result.params['lz%dfwhm'%(i)].value)
+
+
+        return peak_center_list
+
