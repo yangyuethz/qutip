@@ -5,9 +5,15 @@ import hbar_sequence
 import hbar_fitting
 import numpy as np
 import matplotlib.pyplot as plt
+from importlib import reload
+reload(hbar_compiler)
+reload(hbar_processor)
+reload(hbar_sequence)
+reload(hbar_fitting)
+
 
 qubit_dim=2
-phonon_dim=10
+phonon_dim=5
 phonon_num=1
 dims=[qubit_dim]+[phonon_dim]*(phonon_num)
 t1=[16]+[60]*(phonon_num)
@@ -23,33 +29,16 @@ swap_t_list_simulated=np.array([0.9615710875211836, 0.6793394959515644, 0.554922
 t_L=np.linspace(0.1,10,100)
 detuning_L=np.linspace(-0.2,0.5,71)
 param1={'Omega':0.0125,
-    'phase':0,
     'sigma':0.2,
     'duration':15,
     }
 param2={'Omega':0.3,
-    'phase':0,
     'sigma':0.2,
     'duration':30,
     'detuning':-1
     }
-catch_result=hbar_sequence.num_split_coh_measurement(detuning_L,test_processor,test_compiler,param2,param1)
-# catch_result=hbar_sequence.num_split_fock_measurement(detuning_L,test_processor,test_compiler,param1,swap_t_list_simulated[:3])
-plt.plot(detuning_L,catch_result)
-#%%
-plt.show()
-a = 1
-# if 1:
-#     tl=np.linspace(0.1,10,100)
-#     swap_t_list=[]
-#     for i in range(8):
-#         amp_list=phonon_rabi_measurement(tl,test_processor,test_compiler,swap_time_list=swap_t_list)
-#         plt.plot(tl,amp_list)
-#         t1_fitter=hbar_fitting.fitter(tl,np.array(amp_list))
-#         swap_t=t1_fitter.fit_phonon_rabi()
-#         swap_t_list.append(swap_t)
+catch_result=hbar_sequence.qubit_T2_measurement(t_L,test_processor,test_compiler,artifical_detuning=1)
 
-
-# %%
+plt.plot(t_L,catch_result)
 
 # %%

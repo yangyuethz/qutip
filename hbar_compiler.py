@@ -27,32 +27,24 @@ def gauss_block_modulated_XY_rotate_compiler(gate,args):
     parameters = args["params"]
 
     #set pulse strength (rabi frequency)
-    if gate.arg_value['Omega']:
-        Omega=gate.arg_value['Omega']*np.pi*2
-    else:
-        Omega= parameters["Omega"]
+    Omega=gate.arg_value.pop('Omega',parameters["Omega"])
+
     #set pulse raising time (sigma)
-    if gate.arg_value['sigma']:
-        gate_sigma=gate.arg_value['sigma']
-    else:
-        gate_sigma = 0.01
-    #set drive detuning frequency
-    if gate.arg_value['detuning']:
-        omega=gate.arg_value['detuning']*np.pi*2
-    else:
-        omega=0
-    #set drive direction
-    if gate.arg_value['phase']:
-        phase=gate.arg_value['phase']
-    else:
-        phase=0
+    gate_sigma=gate.arg_value.pop('sigma',0.01)
+
+    #the detuning of the frequency of the driving field
+    detuning=gate.arg_value.pop('detuning',0)*2*np.pi
+
+    #rotate direction of the qubit, 0 means X, np.pi/2 means Y axis
+    rotate_direction=gate.arg_value.pop('rotate_direction',0)
+
     #set pulse duration
     duration=gate.arg_value['duration']
     
     time_step=3e-3
     tlist = np.linspace(0, duration, int(duration/time_step))
-    coeff1 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,omega, phase)
-    coeff2 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,omega, phase+np.pi/2)
+    coeff1 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,detuning, rotate_direction)
+    coeff2 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,detuning, rotate_direction+np.pi/2)
 
     pulse_info =[ ("X-axis_R", coeff1),("Y-axis_R",coeff2) ]#  save the information in a tuple (pulse_name, coeff)
     return [Instruction(gate, tlist, pulse_info)]
@@ -91,8 +83,8 @@ def starkshift_compiler(gate, args):
     return [Instruction(gate, tlist, pulse_info)]
 
 #define gauss shape 
-def gauss_dist(t, sigma, amplitude, duration):
-    return amplitude*np.exp(-0.5*((t-duration/2)/sigma)**2)
+def gauss_dist(t, sigma, amplitude, duration,omega,phase):
+    return amplitude*np.exp(-0.5*((t-duration/2)/sigma)**2)*np.cos(omega*t+phase)
 
 #define gaussian shape x rotation, normally for quick pulse
 def gauss_rx_compiler(gate, args):
@@ -100,17 +92,28 @@ def gauss_rx_compiler(gate, args):
     Compiler for the X-axis_Rotate gate
     """
     targets = gate.targets  # target qubit
+    if not gate.arg_value:
+        gate.arg_value={}
+
     parameters = args["params"]
-    if gate.arg_value:
-        Omega=gate.arg_value['Omega']
-    else:
-        Omega= parameters["Omega"]  # find the coupling strength for the target qubit
+    # rabi frequency of the qubit operation
+    Omega=gate.arg_value.pop('Omega',parameters["Omega"])
+    # the phase want to rotate
+    rotate_phase=gate.arg_value.pop('rotate_phase',np.pi)
+    #the ratio we need to change the amplitude based on phase we want to rotate
+    amp_ratio=rotate_phase/(np.pi)
+    #the detuning of the frequency of the driving field
+    detuning=gate.arg_value.pop('detuning',0) *2*np.pi
+    #rotate direction of the qubit, 0 means X, np.pi/2 means Y axis
+    rotate_direction=gate.arg_value.pop('rotate_direction',0)
+
     gate_sigma = 1/Omega
-    amplitude = Omega/2.49986*np.pi/2 #  0.9973 is just used to compensate the finite pulse duration so that the total area is fixed
+    amplitude = Omega/2.49986*np.pi/2*amp_ratio #  2.49986 is just used to compensate the finite pulse duration so that the total area is fixed
     duration = 6 * gate_sigma
     tlist = np.linspace(0, duration, 300)
-    coeff = gauss_dist(tlist, gate_sigma, amplitude, duration)
-    pulse_info =[ ("X-axis_R", coeff) ]#  save the information in a tuple (pulse_name, coeff)
+    coeff1 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction)
+    coeff2 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction+np.pi/2)
+    pulse_info =[ ("X-axis_R", coeff1),("Y-axis_R", coeff2) ]#  save the information in a tuple (pulse_name, coeff)
     return [Instruction(gate, tlist, pulse_info)]
 
 #define waiting pulse

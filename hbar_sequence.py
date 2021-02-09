@@ -51,6 +51,25 @@ def phonon_rabi_measurement(t_list,processor,compiler,swap_time_list=[]):
         qubit_measured_list.append(expect(num(processor.dims[0]),final_state.ptrace(0)))
     return qubit_measured_list
 
+#qubit T2 measurement
+def qubit_T2_measurement(t_list,processor,compiler,swap_time_list=[],artifical_detuning=0):
+    prepared_state=basis( processor.dims, [0]+[0]*(processor.N-1))
+    for swap_t in swap_time_list:
+        circuit = QubitCircuit((processor.N))
+        circuit.add_gate("X_R", targets=0)
+        circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=swap_t)
+        prepared_state=run_circuit(circuit,processor,compiler,init_state=prepared_state)
+    qubit_measured_list=[]
+    for t in tqdm(t_list):
+        circuit = QubitCircuit((processor.N-1+1))
+        circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+        circuit.add_gate('Wait',targets=0,arg_value=t)
+        circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,'rotate_direction':2*np.pi*artifical_detuning*t})
+        final_state=run_circuit(circuit,processor,compiler,init_state=prepared_state)
+        qubit_measured_list.append(expect(num(processor.dims[0]),final_state.ptrace(0)))
+    return qubit_measured_list
+
+
 # qubit spectrum measurement
 def qubit_pec_measurement(detuning_list,processor,compiler,params):
     qubit_measured_list=[]
