@@ -3,6 +3,7 @@ import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d as gauss1D
 from scipy import signal
 from scipy.optimize import curve_fit
+from lmfit.models import LorentzianModel,ConstantModel
 
 def Lorentz(x,x0,w,A,B):
     return A*(1-1/(1+((x-x0)/w)**2))+B
@@ -97,12 +98,58 @@ class fitter(object):
         max_point=x_array[np.argsort(y_array)[-1]]
         popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,1,1,0])
         plt.plot(x_array,y_array,label='simulated')
-        plt.plot(x_array,Exp_sine(x_array,*popt),label='fitted')
+        plt.plot(x_array,Lorentz(x_array,*popt),label='fitted')
         plt.legend()
-        plt.title(('w0 = %.5f MHz '% (popt[0]/1e9)))
+        plt.title(('w0 = %.5f MHz '% (popt[0])))
         plt.show()
         return  {'w0': popt[0],
         'width':popt[1],
         }
     
+    def fit_multi_peak(self):
+        x_array=self.x_array
+        y_array=self.y_array
+        threshold=0.1
 
+        #find peaks position first
+        y_smooth=signal.savgol_filter(y_array,31,4)
+        max_point=signal.argrelextrema(y_smooth, np.greater)[0]
+        peak_position=[]
+        for i in max_point:
+            if y_array[i]> threshold:
+                peak_position.append(x_array[i])
+
+        #define the peak fitting model
+        def add_peak(prefix, center, amplitude=0.2, sigma=0.1):
+            peak = LorentzianModel(prefix=prefix)
+            pars = peak.make_params()
+            pars[prefix + 'center'].set(center)
+            pars[prefix + 'amplitude'].set(amplitude)
+            pars[prefix + 'sigma'].set(sigma, min=0)
+            return peak, pars
+        
+        model = ConstantModel(prefix='bkg')
+        params = model.make_params(c=0)
+        rough_peak_positions =peak_position
+        for i, cen in enumerate(rough_peak_positions):
+            peak, pars = add_peak('lz%d' % (i+1), cen)
+            model = model + peak
+            params.update(pars)
+
+        init = model.eval(params, x=x_array)
+        result = model.fit(y_array, params, x=x_array)
+        comps = result.eval_components()
+
+        plt.plot(x_array, y_array, label='data')
+        plt.plot(x_array,y_smooth,label='smooth')
+        plt.plot(x_array, result.best_fit, label='best fit')
+        for name, comp in comps.items():
+            if "lz" in name:
+                plt.plot(x_array, comp+comps['bkg'], '--', label=name)
+        plt.legend(loc='upper right')
+        plt.show()
+        peak_height_list=[]
+
+        for i in range(len(peak_position)):
+            peak_height_list.append( result.params['lz%dheight'%(len(peak_position)-i)].value)
+        peak_height_list=np.abs(np.array(peak_height_list))

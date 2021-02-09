@@ -27,16 +27,16 @@ def gauss_block_modulated_XY_rotate_compiler(gate,args):
     parameters = args["params"]
 
     #set pulse strength (rabi frequency)
-    Omega=gate.arg_value.pop('Omega',parameters["Omega"])
+    Omega=gate.arg_value.get('Omega',parameters["Omega"])*np.pi*2
 
     #set pulse raising time (sigma)
-    gate_sigma=gate.arg_value.pop('sigma',0.01)
+    gate_sigma=gate.arg_value.get('sigma',0.01)
 
     #the detuning of the frequency of the driving field
-    detuning=gate.arg_value.pop('detuning',0)*2*np.pi
+    detuning=gate.arg_value.get('detuning',0)*2*np.pi
 
     #rotate direction of the qubit, 0 means X, np.pi/2 means Y axis
-    rotate_direction=gate.arg_value.pop('rotate_direction',0)
+    rotate_direction=gate.arg_value.get('rotate_direction',0)
 
     #set pulse duration
     duration=gate.arg_value['duration']
@@ -97,15 +97,15 @@ def gauss_rx_compiler(gate, args):
 
     parameters = args["params"]
     # rabi frequency of the qubit operation
-    Omega=gate.arg_value.pop('Omega',parameters["Omega"])
+    Omega=gate.arg_value.get('Omega',parameters["Omega"])*np.pi*2
     # the phase want to rotate
-    rotate_phase=gate.arg_value.pop('rotate_phase',np.pi)
+    rotate_phase=gate.arg_value.get('rotate_phase',np.pi)
     #the ratio we need to change the amplitude based on phase we want to rotate
     amp_ratio=rotate_phase/(np.pi)
     #the detuning of the frequency of the driving field
-    detuning=gate.arg_value.pop('detuning',0) *2*np.pi
+    detuning=gate.arg_value.get('detuning',0) *2*np.pi
     #rotate direction of the qubit, 0 means X, np.pi/2 means Y axis
-    rotate_direction=gate.arg_value.pop('rotate_direction',0)
+    rotate_direction=gate.arg_value.get('rotate_direction',0)
 
     gate_sigma = 1/Omega
     amplitude = Omega/2.49986*np.pi/2*amp_ratio #  2.49986 is just used to compensate the finite pulse duration so that the total area is fixed
@@ -113,6 +113,7 @@ def gauss_rx_compiler(gate, args):
     tlist = np.linspace(0, duration, 300)
     coeff1 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction)
     coeff2 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction+np.pi/2)
+    
     pulse_info =[ ("X-axis_R", coeff1),("Y-axis_R", coeff2) ]#  save the information in a tuple (pulse_name, coeff)
     return [Instruction(gate, tlist, pulse_info)]
 

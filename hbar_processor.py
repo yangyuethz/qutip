@@ -14,7 +14,7 @@ class HBAR_processor(Processor):
 
     def set_up_params(self, Omega,alpha,FSR,g,rest_place):
         self.params = {}
-        self.params["Omega"] = 2*np.pi*Omega  # default rabi frequency
+        self.params["Omega"] = Omega  # default rabi frequency
         self.params["alpha"] = 2*np.pi*alpha  # enharmonic term
         self.params['phonon_omega_z']=(np.array(range(self.N-1))*FSR-rest_place)*2*np.pi
         self.params['g']=g*2*np.pi
