@@ -49,7 +49,7 @@ class fitter(object):
         plt.title(('T1 = %.3f us '% (popt[1])))
         plt.legend()
         plt.show()
-        return popt[1]
+        return {'T1':popt[1]}
     
     def fit_phonon_rabi(self):
         #fit for phonon_qubit oscillation
@@ -67,6 +67,42 @@ class fitter(object):
         plt.plot(x_array,y_array,label='simulated')
         plt.plot(x_array,Exp_plus_sine(x_array,*popt),label='fitted')
         plt.legend()
-        plt.title(' = %.3f us '% (1/popt[-2]/2))
+        plt.title('swap time = %.3f us '% (1/popt[-2]/2))
         plt.show()
-        return 1/popt[-2]/2
+        return {'swap_time':1/popt[-2]/2}
+
+    def fit_T2(self):
+        x_array=self.x_array
+        y_array=self.y_array
+        y_smooth=signal.savgol_filter(y_array,51,4)
+        y_smooth=signal.savgol_filter(y_smooth,51,4)
+
+        minimum_number=len(*signal.argrelextrema(y_smooth, np.less))
+        amp_range=x_array[-1]-x_array[0]
+        minimum_amp=np.min(y_array)
+        normalization=np.average(y_array)
+        popt,pcov =curve_fit(Exp_sine,x_array,y_array,[(normalization-minimum_amp),amp_range/3,normalization,minimum_number/amp_range,0])
+        plt.plot(x_array,y_array,label='simulated')
+        plt.plot(x_array,Exp_sine(x_array,*popt),label='fitted')
+        plt.legend()
+        plt.title('T2 = %.3f us, detuning is %.3f MHz '% (popt[1],popt[3]))
+        plt.show()
+        return {'T2': popt[1],
+            'delta': popt[3]
+            }
+    
+    def fit_single_peak(self):
+        x_array=self.x_array
+        y_array=self.y_array
+        max_point=x_array[np.argsort(y_array)[-1]]
+        popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,1,1,0])
+        plt.plot(x_array,y_array,label='simulated')
+        plt.plot(x_array,Exp_sine(x_array,*popt),label='fitted')
+        plt.legend()
+        plt.title(('w0 = %.5f MHz '% (popt[0]/1e9)))
+        plt.show()
+        return  {'w0': popt[0],
+        'width':popt[1],
+        }
+    
+

@@ -27,18 +27,26 @@ swap_t_list_simulated=np.array([0.9615710875211836, 0.6793394959515644, 0.554922
      0.4294620578370378, 0.3923078531720593, 0.3639007000694595, 0.34220291598663793])
 #%%
 t_L=np.linspace(0.1,10,100)
-detuning_L=np.linspace(-0.2,0.5,71)
-param1={'Omega':0.0125,
+detuning_L=np.linspace(-0.5,0.5,51)
+
+param_probe={'Omega':0.0125,
     'sigma':0.2,
     'duration':15,
     }
-param2={'Omega':0.3,
+param_drive={'Omega':0.3,
     'sigma':0.2,
     'duration':30,
     'detuning':-1
     }
-catch_result=hbar_sequence.qubit_T2_measurement(t_L,test_processor,test_compiler,artifical_detuning=1)
+# catch_result=hbar_sequence.qubit_T2_measurement(t_L,test_processor,test_compiler,swap_time_list=swap_t_list_simulated[:3], artifical_detuning=1)
+# catch_result=hbar_sequence.qubit_spec_measurement(detuning_L,test_processor,test_compiler,param_probe)
+catch_result=hbar_sequence.num_split_fock_measurement(detuning_L,test_processor,test_compiler,param_probe)
+# plt.plot(t_L,catch_result)
+plt.plot(detuning_L,catch_result)
 
-plt.plot(t_L,catch_result)
-
+# %%
+test_fitter=hbar_fitting.fitter(t_L,catch_result)
+test_fitter.fit_single_peak()
+# %%
+test_processor.plot_pulses()
 # %%
