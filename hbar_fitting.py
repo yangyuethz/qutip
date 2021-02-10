@@ -106,10 +106,10 @@ class fitter(object):
         'width':popt[1],
         }
     
-    def fit_multi_peak(self):
+    def fit_multi_peak(self,threshold):
         x_array=self.x_array
         y_array=self.y_array
-        threshold=0.1
+        
 
         #find peaks position first
         y_smooth=signal.savgol_filter(y_array,31,4)
