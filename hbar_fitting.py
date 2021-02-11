@@ -96,7 +96,7 @@ class fitter(object):
         x_array=self.x_array
         y_array=self.y_array
         max_point=x_array[np.argsort(y_array)[-1]]
-        popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,1,1,0])
+        popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,0.5,0.1,0])
         plt.plot(x_array,y_array,label='simulated')
         plt.plot(x_array,Lorentz(x_array,*popt),label='fitted')
         plt.legend()
@@ -112,7 +112,7 @@ class fitter(object):
         
 
         #find peaks position first
-        y_smooth=signal.savgol_filter(y_array,31,4)
+        y_smooth=signal.savgol_filter(y_array,11,4)
         max_point=signal.argrelextrema(y_smooth, np.greater)[0]
         peak_position=[]
         for i in max_point:
@@ -120,7 +120,7 @@ class fitter(object):
                 peak_position.append(x_array[i])
 
         #define the peak fitting model
-        def add_peak(prefix, center, amplitude=0.2, sigma=0.1):
+        def add_peak(prefix, center, amplitude=0.3, sigma=0.1):
             peak = LorentzianModel(prefix=prefix)
             pars = peak.make_params()
             pars[prefix + 'center'].set(center)

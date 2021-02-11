@@ -48,7 +48,7 @@ class HBAR_processor(Processor):
     def set_up_drift(self):
 
         #qubit enharmonic term
-        self.add_drift(self.params['alpha']*create(self.dims[0])**2*destroy(self.dims[0])**2,0)
+        self.add_drift(1/2*self.params['alpha']*create(self.dims[0])**2*destroy(self.dims[0])**2,0)
 
         #qubit phonon coupling
         for i in range(self.N-1):
