@@ -159,5 +159,5 @@ class fitter(object):
             peak_width_list.append(result.params['lz%dfwhm'%(i)].value)
 
 
-        return peak_center_list
+        return [peak_center_list,peak_height_list,peak_width_list]
 

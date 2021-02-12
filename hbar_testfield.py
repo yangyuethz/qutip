@@ -9,6 +9,7 @@ from importlib import reload
 from qutip.qip.circuit import Measurement, QubitCircuit
 import qutip as qt
 from  qutip.parallel import parallel_map, parfor 
+from qutip import basis
 reload(hbar_compiler)
 reload(hbar_processor)
 reload(hbar_sequence)
