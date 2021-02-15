@@ -96,7 +96,7 @@ class fitter(object):
         x_array=self.x_array
         y_array=self.y_array
         max_point=x_array[np.argsort(y_array)[-1]]
-        popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,0.5,0.1,0])
+        popt,pcov =curve_fit(Lorentz,x_array,y_array,[max_point,0.1,np.max(y_array),np.min(y_array)])
         plt.plot(x_array,y_array,label='simulated')
         plt.plot(x_array,Lorentz(x_array,*popt),label='fitted')
         plt.legend()
