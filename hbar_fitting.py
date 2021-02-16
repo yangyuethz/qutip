@@ -106,7 +106,7 @@ class fitter(object):
         'width':popt[1],
         }
     
-    def fit_multi_peak(self,threshold):
+    def fit_multi_peak(self,peaks):
         x_array=self.x_array
         y_array=self.y_array
         
@@ -114,10 +114,13 @@ class fitter(object):
         #find peaks position first
         y_smooth=signal.savgol_filter(y_array,11,4)
         max_point=signal.argrelextrema(y_smooth, np.greater)[0]
-        peak_position=[]
-        for i in max_point:
-            if y_array[i]> threshold:
-                peak_position.append(x_array[i])
+        print(x_array[max_point])
+        # peak_position=[]
+        peak_position=x_array[max_point[np.argsort(y_smooth[max_point])[-peaks:]]]
+        print('peaks position:', peak_position)
+        # for i in max_point:
+        #     if y_array[i]> threshold:
+        #         peak_position.append(x_array[i])
 
         #define the peak fitting model
         def add_peak(prefix, center, amplitude=0.3, sigma=0.1):
@@ -140,9 +143,10 @@ class fitter(object):
         result = model.fit(y_array, params, x=x_array)
         comps = result.eval_components()
 
-        plt.plot(x_array, y_array, label='data')
-        plt.plot(x_array,y_smooth,label='smooth')
-        plt.plot(x_array, result.best_fit, label='best fit')
+        fig,ax=plt.subplots()
+        ax.plot(x_array, y_array, label='data')
+        ax.plot(x_array,y_smooth,label='smooth')
+        ax.plot(x_array, result.best_fit, label='best fit')
 
         for name, comp in comps.items():
             if "lz" in name:

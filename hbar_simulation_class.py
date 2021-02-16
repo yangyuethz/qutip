@@ -1,4 +1,5 @@
 from os import error
+import qutip as qt
 from qutip.tensor import tensor
 from qutip.states import coherent, fock 
 from numpy.core.records import array
@@ -18,7 +19,7 @@ class Simulation():
     '''
     Setting the simulated experiment
     '''
-    def __init__(self,processor,compiler,t_list=np.linspace(0.01,10,100),
+    def __init__(self,processor,compiler,t_list=np.linspace(0.1,10,100),
         detuning_list=np.linspace(-0.3,1,100),swap_time_list=[],artificial_detuning=0,
         reading_time=None,initial_state=None):
         self.qubit_probe_params={}
@@ -150,6 +151,19 @@ class Simulation():
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
         self.fit_result.append(self.fitter.fit_phonon_rabi())
 
+    def qubit_rabi_measurement(self):
+        self.x_array=self.t_list
+        self.set_up_1D_experiment(title='qubit rabi')
+        i=0
+        for t in tqdm(self.x_array):
+            self.qubit_probe_params['duration']=t
+            circuit = QubitCircuit((self.processor.N))
+            circuit.add_gate("XY_R_GB", targets=0,arg_value=self.qubit_probe_params)
+            self.post_process(circuit,i)
+            i=i+1
+        self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+        self.fit_result.append(self.fitter.fit_phonon_rabi())
+
     def qubit_ramsey_measurement(self,artificial_detuning=None):
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='qubit Ramsey')
@@ -180,6 +194,21 @@ class Simulation():
             self.post_process(circuit,i,readout_type)
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+
+    def wigner_measurement(self,phonon_drive_params=None,step):
+        self.generate_coherent_state(phonon_drive_params)
+        self.fit_wigner()
+        alpha_axis=np.abs(self.alpha)
+
+
+    
+    def fit_wigner(self):
+        wigner_array=np.linspace(-10,10,201)
+        wigner_2D=qt.wigner(self.initial_state.ptrace(1),wigner_array,wigner_array)
+        position=np.where(wigner_2D==np.amax(wigner_2D))
+        self.alpha=(1j*wigner_array[position[0]]+wigner_array[position[1]])[0]
+        alpha_fidelity=expect(self.initial_state.ptrace(1),coherent(self.processor.dims[1],self.alpha))
+        print(f'alpha is {self.alpha}, fidelity is {alpha_fidelity}')
 
 
 

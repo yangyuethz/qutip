@@ -333,7 +333,7 @@ def _wigner_iterative(rho, xvec, yvec, g=sqrt(2)):
             # Wlist[n] = Wigner function for |m><n|
             W += 2 * real(rho[m, n] * Wlist[n])
 
-    return 0.5 * W * g ** 2
+    return 0.5 * W * g *sqrt(2)
 
 
 def _wigner_laguerre(rho, xvec, yvec, g, parallel):
@@ -384,7 +384,7 @@ def _wigner_laguerre(rho, xvec, yvec, g, parallel):
                                     sqrt(factorial(m) / factorial(n)) *
                                     genlaguerre(m, n - m)(B))
 
-    return 0.5 * W * g ** 2 * np.exp(-B / 2) / pi
+    return 0.5 * W * g *sqrt(2) * np.exp(-B / 2) / pi
 
 
 def _par_wig_eval(args):
@@ -517,7 +517,7 @@ def _wigner_clenshaw(rho, xvec, yvec, g=sqrt(2), sparse=False):
             #here c_L = _wig_laguerre_val(L, B, np.diag(rho, L))
             w0 = _wig_laguerre_val(L, B, diag) + w0 * A2 * (L+1)**-0.5
 
-    return w0.real * np.exp(-B*0.5) * (g*g*0.5 / pi)
+    return w0.real * np.exp(-B*0.5) * (sqrt(2)*g*0.5 / pi)
 
 
 def _wig_laguerre_val(L, x, c):
