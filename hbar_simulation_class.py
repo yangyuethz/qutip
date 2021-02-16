@@ -195,12 +195,30 @@ class Simulation():
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
 
-    def wigner_measurement(self,phonon_drive_params=None,step):
+    def wigner_measurement_1D(self,phonon_drive_params=None,steps=40,second_pulse_flip=False):
+        stored_initial_state=self.initial_state
+        #calibration of the alpha axis based on wigner fitting
         self.generate_coherent_state(phonon_drive_params)
         self.fit_wigner()
-        alpha_axis=np.abs(self.alpha)
-
-
+        self.x_array=np.linspace(0,np.abs(self.alpha),steps)
+        self.initial_state=stored_initial_state
+        self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
+        Omega_max=self.phonon_drive_params['Omega']
+        i=0
+        for Omega in np.linspace(0,Omega_max,steps):
+            self.phonon_drive_params['Omega']=Omega
+            circuit = QubitCircuit((self.processor.N))
+            circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
+            circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+            circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
+            if second_pulse_flip:
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
+                'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time+np.pi})
+            else:
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
+                'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
+            self.post_process(circuit,i)
+            i=i+1
     
     def fit_wigner(self):
         wigner_array=np.linspace(-10,10,201)
