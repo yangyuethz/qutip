@@ -9,7 +9,7 @@ from qutip.solver import Options
 from qutip import basis
 from qutip.qip.circuit import Measurement, QubitCircuit
 from qutip.solver import Options
-from qutip.operators import num, phase
+from qutip.operators import num, phase, qeye
 import matplotlib.pyplot as plt
 import time
 from tqdm import tqdm
@@ -75,7 +75,7 @@ class Simulation():
             expected_population=expect(num(self.processor.dims[0]),final_state.ptrace(0))
         elif readout_type=='read phonon':
             expected_population=expect(num(self.processor.dims[1]),final_state.ptrace(1))
-            plt.ylim((0,np.max(self.y_array)+0.1))
+            plt.ylim((0,np.max(self.y_array)*1.1))
             plt.ylabel("phonon expected num",fontsize=18)
         else:
             raise NameError('readout object select wrong')
@@ -96,6 +96,9 @@ class Simulation():
         '''
         self.initial_state=tensor(fock(self.processor.dims[0],0),coherent(self.processor.dims[1],alpha))
 
+    def ideal_qubit_state(self,expected_z):
+        self.initial_state=tensor(np.sqrt(1-expected_z)*fock(self.processor.dims[0],0)+np.sqrt(expected_z)*fock(self.processor.dims[0],1),
+        coherent(self.processor.dims[1],0))
 
     def generate_fock_state(self,fock_number):
         '''
@@ -108,7 +111,8 @@ class Simulation():
             circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=swap_t)
             self.initial_state=self.run_circuit(circuit)
         print('fidelity of phonon : ',expect(self.initial_state.ptrace(1),fock(self.processor.dims[1],fock_number)))
-    
+
+
     def generate_coherent_state(self,phonon_drive_params=None):
         '''
         simulation of driving phonon mediated by qubit, expect a coherent state
@@ -123,6 +127,10 @@ class Simulation():
     
 
     def phonon_T1_measurement(self):
+        '''
+        simulation of phonon T1, first excite qubit and then swap it to phonon. Wait some time and 
+        swap back to readout
+        '''
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='phonon T1')
         i=0
@@ -164,7 +172,7 @@ class Simulation():
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
         self.fit_result.append(self.fitter.fit_phonon_rabi())
 
-    def qubit_ramsey_measurement(self,artificial_detuning=None):
+    def qubit_ramsey_measurement(self,artificial_detuning=None,fit=True):
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='qubit Ramsey')
         if not(artificial_detuning==None):
@@ -178,8 +186,9 @@ class Simulation():
                 'rotate_direction':2*np.pi*self.artificial_detuning*t})
             self.post_process(circuit,i)
             i=i+1
-        self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
-        self.fit_result.append(self.fitter.fit_T2())
+        if fit:
+            self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+            self.fit_result.append(self.fitter.fit_T2())
 
     def spec_measurement(self,qubit_probe_params={},readout_type='read qubit'):
         if not(qubit_probe_params=={}):
@@ -195,20 +204,41 @@ class Simulation():
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
 
-    def wigner_measurement_1D(self,phonon_drive_params=None,steps=40,second_pulse_flip=False):
+    def wigner_measurement_1D(self,phonon_drive_params=None,steps=40,
+    displacement_type='simulated',second_pulse_flip=False,set_alpha_range=None):
+        '''
+        displacement_type can be choose as 'simulated' or 'ideal'
+        the second_pulse_flip is choose if the second half pi pulse change to opposite direction
+        '''
         stored_initial_state=self.initial_state
-        #calibration of the alpha axis based on wigner fitting
-        self.generate_coherent_state(phonon_drive_params)
-        self.fit_wigner()
+        if set_alpha_range:
+            self.alpha=set_alpha_range
+        else:
+            #calibration of the alpha axis based on wigner fitting
+            self.generate_coherent_state(phonon_drive_params)
+            self.fit_wigner()
+       
         self.x_array=np.linspace(0,np.abs(self.alpha),steps)
+        #set experiment up
         self.initial_state=stored_initial_state
         self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
         Omega_max=self.phonon_drive_params['Omega']
-        i=0
-        for Omega in np.linspace(0,Omega_max,steps):
-            self.phonon_drive_params['Omega']=Omega
+        Omega_list=np.linspace(0,Omega_max,steps)
+        
+        for i, alpha in enumerate(self.x_array):
+            self.phonon_drive_params['Omega']=Omega_list[i]
             circuit = QubitCircuit((self.processor.N))
-            circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
+            if displacement_type=='simulated':
+                circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
+            elif displacement_type=='ideal':
+                displacement_operator=tensor(qeye(self.processor.dims[0]),
+                qt.displace(self.processor.dims[1],alpha))
+                if self.initial_state.shape[1]==1:
+                    self.initial_state=displacement_operator*stored_initial_state
+                else:
+                    self.initial_state=displacement_operator*stored_initial_state*displacement_operator
+            else:
+                raise NameError('displacement type select wrong')
             circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
             circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
             if second_pulse_flip:
@@ -219,6 +249,32 @@ class Simulation():
                 'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
             self.post_process(circuit,i)
             i=i+1
+
+    def wigner_measurement_2D(self,phonon_drive_params=None,steps=40):
+        
+        stored_initial_state=self.initial_state
+        self.generate_coherent_state(phonon_drive_params)
+        self.fit_wigner()
+        axis=np.linspace(-np.abs(self.alpha),np.abs(self.alpha),steps)
+        self.initial_state=stored_initial_state
+        Omega_alpha_ratio=self.phonon_drive_params['Omega']/self.alpha
+        storage_list_2D=[]
+        for x in axis:
+            self.x_array=axis
+            self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
+            for i,y in enumerate(axis):
+                print(x,y)
+                circuit = QubitCircuit((self.processor.N))
+                self.phonon_drive_params['Omega']=np.sqrt(x**2+y**2)*Omega_alpha_ratio
+                self.phonon_drive_params['rotate_direction']=np.angle(x+1j*y)
+                circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+                circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
+                    'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
+                self.post_process(circuit,i)
+            storage_list_2D.append(self.y_array)
+        return storage_list_2D
     
     def fit_wigner(self):
         wigner_array=np.linspace(-10,10,201)
@@ -228,6 +284,24 @@ class Simulation():
         alpha_fidelity=expect(self.initial_state.ptrace(1),coherent(self.processor.dims[1],self.alpha))
         print(f'alpha is {self.alpha}, fidelity is {alpha_fidelity}')
 
+    def generate_cat(self):
+        # initial_state is |g,0>
+        circuit = QubitCircuit((self.processor.N))
+        self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
 
+        # prepare qubit in superpostion, get |g,0>+|e,0>
+        circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+        
+        # selectively drive the phonon, get |g,alpha>+|e,0|
+        circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
+        self.initial_state=self.run_circuit(circuit)
+        qt.plot_wigner_fock_distribution(self.initial_state.ptrace(1))
+
+        # selectively give the qubit pi pulse, get |g>(|alpha>+|0>)
+        circuit = QubitCircuit((self.processor.N))
+        circuit.add_gate("XY_R_GB", targets=0,arg_value=self.qubit_probe_params)
+        self.initial_state=self.run_circuit(circuit)
+        qt.plot_wigner_fock_distribution(self.initial_state.ptrace(1))
+        qt.plot_wigner_fock_distribution(self.initial_state.ptrace(0))
 
 
