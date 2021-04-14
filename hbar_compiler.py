@@ -41,7 +41,7 @@ def gauss_block_modulated_XY_rotate_compiler(gate,args):
     #set pulse duration
     duration=gate.arg_value['duration']
     
-    time_step=10e-3
+    time_step=3e-3
     tlist = np.linspace(0, duration, int(duration/time_step))
     coeff1 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,detuning, rotate_direction)
     coeff2 = gauss_block_modulated(tlist, gate_sigma, Omega, duration,detuning, rotate_direction+np.pi/2)
@@ -121,7 +121,7 @@ def gauss_rx_compiler(gate, args):
 def wait_complier(gate,args):
     targets = gate.targets  # target qubit
     parameters = args["params"]
-    time_step=10e-3 #assume T1 at least 1us for each part of the system
+    time_step=3e-3 #assume T1 at least 1us for each part of the system
     duration=gate.arg_value
     tlist=np.linspace(0,duration,int(duration/time_step))
     coeff=0*tlist

@@ -27,10 +27,10 @@ qubit_phonon_detuning=1.5
 dims=[qubit_dim]+[phonon_dim]*(phonon_num)
 #T1 list of the system
 t1=[16]+[60]*(phonon_num)
-# t1=[1000]*(1+phonon_num)
+
 #T2 list of the system
 t2=[17]+[112]*(phonon_num)
-# t2=[1000]*(1+phonon_num)
+
 #set up the processor and compiler
 test_processor=hbar_processor.HBAR_processor((phonon_num+1),t1,t2,dims,g=0.26,\
     rest_place=qubit_phonon_detuning)
@@ -41,14 +41,14 @@ simulation_test=hbar_simulation_class.Simulation(test_processor,test_compiler)
 simulation_test.swap_time_list=np.array([0.9615745472779998, 0.6793420222651693, 0.5549538733587259,
  0.48038367226189926, 0.4292531978245541, 0.39238362592764875, 0.36387759767336825, 0.34112748801301906])
 
-phonon_freq=-1.538
+phonon_freq=-1
 reading_time=6.942878985988443
 qubit_freq=0.056123727087823316
 simulation_test.reading_time=reading_time
 simulation_test.artificial_detuning=qubit_freq
 simulation_test.t_list=np.linspace(0.1,30,60)
 
-param_drive={'Omega':0.2,
+param_drive={'Omega':0.3,
     'sigma':0.2,
     'duration':10,
     'detuning':phonon_freq,
@@ -63,17 +63,11 @@ param_probe={'Omega':dis_entangle_omega,
 simulation_test.phonon_drive_params=param_drive
 simulation_test.qubit_probe_params=param_probe
 #%%
-catched_data=simulation_test.wigner_measurement_2D(steps=10)
+simulation_test.ideal_phonon_fock(0)
+simulation_test.wigner_measurement_1D()
 #%%
-x=np.linspace(-1.76,1.76,10)
-xx,yy=np.meshgrid(x,x)
-plt.figure(figsize=(6,6))
-plt.contourf(xx, yy, catched_data,40)
-plt.gca().set_aspect('equal')
-plt.colorbar().set_label("qubit")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.show()
+simulation_test.ideal_phonon_fock(1)
+catched_data=simulation_test.wigner_measurement_2D(steps=15)
 #%% test cat state
 simulation_test.generate_cat()
 #%% find phonon freq

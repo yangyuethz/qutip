@@ -218,7 +218,7 @@ class Simulation():
             self.generate_coherent_state(phonon_drive_params)
             self.fit_wigner()
        
-        self.x_array=np.linspace(0,np.abs(self.alpha),steps)
+        self.x_array=np.linspace(-np.abs(self.alpha),np.abs(self.alpha),steps)
         #set experiment up
         self.initial_state=stored_initial_state
         self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
@@ -251,7 +251,9 @@ class Simulation():
             i=i+1
 
     def wigner_measurement_2D(self,phonon_drive_params=None,steps=40):
-        
+        '''
+        steps is the number of the point in the ploting axis also the simulation times
+        '''
         stored_initial_state=self.initial_state
         self.generate_coherent_state(phonon_drive_params)
         self.fit_wigner()
@@ -259,21 +261,29 @@ class Simulation():
         self.initial_state=stored_initial_state
         Omega_alpha_ratio=self.phonon_drive_params['Omega']/self.alpha
         storage_list_2D=[]
-        for x in axis:
+        for x in tqdm(axis):
             self.x_array=axis
             self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
-            for i,y in enumerate(axis):
-                print(x,y)
+            for i, y in enumerate(axis):
                 circuit = QubitCircuit((self.processor.N))
                 self.phonon_drive_params['Omega']=np.sqrt(x**2+y**2)*Omega_alpha_ratio
-                self.phonon_drive_params['rotate_direction']=np.angle(x+1j*y)
+                self.phonon_drive_params['rotate_direction']=np.angle(x+1j*y)+0.5*np.pi
                 circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
                 circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
                 circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
                 circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
                     'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
                 self.post_process(circuit,i)
-            storage_list_2D.append(self.y_array)
+            storage_list_2D.append(self.y_array*2-1)
+
+        xx,yy=np.meshgrid(axis,axis)
+        plt.figure(figsize=(6,6))
+        plt.contourf(xx, yy, storage_list_2D,40,cmap='RdBu_r')
+        plt.gca().set_aspect('equal')
+        plt.colorbar().set_label("qubit")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
         return storage_list_2D
     
     def fit_wigner(self):
