@@ -142,7 +142,7 @@ class Gate:
         for ind_list in [self.targets, self.controls, self.classical_controls]:
             if isinstance(ind_list, Iterable):
                 all_integer = all(
-                    [isinstance(ind, np.int) for ind in ind_list])
+                    [isinstance(ind, int) for ind in ind_list])
                 if not all_integer:
                     raise ValueError("Index of a qubit must be an integer")
 

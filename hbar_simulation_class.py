@@ -105,13 +105,22 @@ class Simulation():
         simulation of using qubit phonon swap to generate phonon fock state
         '''
         self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
+        circuit = QubitCircuit((self.processor.N))
         for swap_t in self.swap_time_list[:fock_number]:
-            circuit = QubitCircuit((self.processor.N))
             circuit.add_gate("X_R", targets=0)
             circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=swap_t)
+        if fock_number!=0:
             self.initial_state=self.run_circuit(circuit)
-        print('fidelity of phonon : ',expect(self.initial_state.ptrace(1),fock(self.processor.dims[1],fock_number)))
-
+        print('fidelity of phonon fock {} :'.format(fock_number),expect(self.initial_state.ptrace(1),fock(self.processor.dims[1],fock_number)))
+    
+    def qubit_pi_pulse(self):
+        '''
+        simulation of giving pi pulse on qubit
+        '''
+        # self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
+        circuit = QubitCircuit((self.processor.N))
+        circuit.add_gate("X_R", targets=0)
+        self.initial_state=self.run_circuit(circuit)
 
     def generate_coherent_state(self,phonon_drive_params=None):
         '''
@@ -159,7 +168,9 @@ class Simulation():
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
         self.fit_result.append(self.fitter.fit_phonon_rabi())
 
-    def qubit_rabi_measurement(self):
+    def qubit_rabi_measurement(self,qubit_probe_params={}):
+        if not(qubit_probe_params=={}):
+            self.qubit_probe_params=qubit_probe_params
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='qubit rabi')
         i=0
@@ -199,10 +210,11 @@ class Simulation():
         for detuning in tqdm(self.x_array):
             self.qubit_probe_params['detuning']=detuning
             circuit = QubitCircuit((self.processor.N))
-            circuit.add_gate("XY_R_GB", targets=0,arg_value=self.qubit_probe_params)
+            circuit.add_gate("XYZ_R_GB", targets=0,arg_value=self.qubit_probe_params)
             self.post_process(circuit,i,readout_type)
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+
 
     def wigner_measurement_1D(self,phonon_drive_params=None,steps=40,
     displacement_type='simulated',second_pulse_flip=False,set_alpha_range=None):
