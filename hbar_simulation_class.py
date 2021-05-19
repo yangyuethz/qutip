@@ -79,6 +79,8 @@ class Simulation():
             plt.ylabel("phonon expected num",fontsize=18)
         else:
             raise NameError('readout object select wrong')
+        expected_population=np.abs(expected_population)
+    
         self.y_array[i]=expected_population
         self.line.set_ydata(self.y_array)
         self.figure.canvas.draw()
@@ -88,7 +90,7 @@ class Simulation():
         '''
         set the initail state as phonon in specific fock state and qubit in g state
         '''
-        self.initial_state=basis(self.processor.dims, [0]+[fock_number]*(self.processor.N-1))
+        self.initial_state=basis(self.processor.dims, [0]+[fock_number]+[0]*(self.processor.N-2))
 
     def ideal_coherent_state(self,alpha):
         '''
@@ -98,7 +100,7 @@ class Simulation():
 
     def ideal_qubit_state(self,expected_z):
         self.initial_state=tensor(np.sqrt(1-expected_z)*fock(self.processor.dims[0],0)+np.sqrt(expected_z)*fock(self.processor.dims[0],1),
-        coherent(self.processor.dims[1],0))
+        basis(self.processor.dims[1:],[0]*(self.processor.N-1)))
 
     def generate_fock_state(self,fock_number):
         '''

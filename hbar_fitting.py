@@ -60,7 +60,12 @@ class fitter(object):
         delay_range=x_array[-1]-x_array[0]
         minimum_amp=np.min(y_array)
         max_amp=np.max(y_array)
-        freq_guess=1/(x_array[minimum_point[1]]-x_array[minimum_point[0]])
+        if len(minimum_point)>1:
+            freq_guess=1/(x_array[minimum_point[1]]-x_array[minimum_point[0]])
+        elif len(minimum_point)==1:
+            freq_guess=1/(x_array[minimum_point[0]]-x_array[0])
+        else:
+            freq_guess=1/(x_array[-1]-x_array[0])
 
         popt,pcov =curve_fit(Exp_plus_sine,x_array,y_array,[-(max_amp-minimum_amp),0.5,
                                                             delay_range/3,delay_range/3,0,freq_guess,0])

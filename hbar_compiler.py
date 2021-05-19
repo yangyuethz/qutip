@@ -145,7 +145,7 @@ def gauss_rx_compiler(gate, args):
 
     gate_sigma = 1/Omega
     amplitude = Omega/2.49986*np.pi/2*amp_ratio #  2.49986 is just used to compensate the finite pulse duration so that the total area is fixed
-    duration = 6 * gate_sigma
+    duration = 4 * gate_sigma
     tlist = np.linspace(0, duration, 300)
     coeff1 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction)
     coeff2 = gauss_dist(tlist, gate_sigma, amplitude, duration,detuning,rotate_direction+np.pi/2)
