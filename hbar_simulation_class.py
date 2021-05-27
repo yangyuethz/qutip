@@ -184,6 +184,22 @@ class Simulation():
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
         self.fit_result.append(self.fitter.fit_phonon_rabi())
+    
+    def qubit_shift_wait(self,qubit_probe_params={},):
+        if not(qubit_probe_params=={}):
+            self.qubit_probe_params=qubit_probe_params
+        self.x_array=self.t_list
+        self.set_up_1D_experiment(title='qubit rabi')
+        i=0
+        for t in tqdm(self.x_array):
+            circuit = QubitCircuit((self.processor.N))
+            self.qubit_probe_params['duration']=t
+            self.qubit_probe_params['Omega']=0
+            circuit.add_gate("XYZ_R_GB", targets=0,arg_value=self.qubit_probe_params)
+            self.post_process(circuit,i)
+            i=i+1
+        # self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+        # self.fit_result.append(self.fitter.fit_phonon_rabi())
 
     def qubit_ramsey_measurement(self,artificial_detuning=None,fit=True):
         self.x_array=self.t_list

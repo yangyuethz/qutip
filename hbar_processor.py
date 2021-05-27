@@ -17,7 +17,11 @@ class HBAR_processor(Processor):
         self.params["Omega"] = Omega  # default rabi frequency
         self.params["alpha"] = 2*np.pi*alpha  # enharmonic term
         self.params['phonon_omega_z']=(np.array(range(self.N-1))*FSR-rest_place)*2*np.pi
-        self.params['g']=g*2*np.pi
+        if type(g)==list:
+            self.params['g']=np.array(g)*2*np.pi
+        else:
+            self.params['g']=np.array([g*2*np.pi]*(self.N-1))
+            
         # Here goes all computation of hardware parameters. They all need to be saved in self.params for later use.
         # The computed parameters can be used e.g. in setting up the Hamiltonians or the compiler to compute the pulse coefficients.
 
@@ -53,7 +57,7 @@ class HBAR_processor(Processor):
         #qubit phonon coupling
         for i in range(self.N-1):
             self.add_drift(
-                self.params['g']*(
+                self.params['g'][i]*(
                     tensor(create(self.dims[0]),destroy(self.dims[i+1]))\
                         +tensor(destroy(self.dims[0]),create(self.dims[i+1]))
                         ),[0,i+1]

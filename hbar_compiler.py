@@ -134,7 +134,7 @@ def gauss_rx_compiler(gate, args):
     parameters = args["params"]
     # rabi frequency of the qubit operation
     Omega=gate.arg_value.get('Omega',parameters["Omega"])*np.pi*2
-    # the phase want to rotate
+    # the phase want to rotate, correspond to amplitude and time of pulse
     rotate_phase=gate.arg_value.get('rotate_phase',np.pi)
     #the ratio we need to change the amplitude based on phase we want to rotate
     amp_ratio=rotate_phase/(np.pi)
