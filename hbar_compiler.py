@@ -109,8 +109,9 @@ def starkshift_compiler(gate, args):
     parameters = args["params"]
     g= parameters["g"]  # find the coupling strength for the target qubit
     gate_sigma =0.01
-    amplitude =parameters['phonon_omega_z'][targets[1]-1]
-    duration=gate.arg_value
+    duration=gate.arg_value['duration']
+    detuning=gate.arg_value.get('detuning',0)
+    amplitude=parameters['phonon_omega_z'][targets[1]-1]+detuning*2*np.pi
     time_step=3e-3
     tlist = np.linspace(0, duration, int(duration/time_step))
     coeff = gauss_block(tlist,gate_sigma, amplitude, duration)

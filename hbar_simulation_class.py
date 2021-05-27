@@ -102,7 +102,7 @@ class Simulation():
         self.initial_state=tensor(np.sqrt(1-expected_z)*fock(self.processor.dims[0],0)+np.sqrt(expected_z)*fock(self.processor.dims[0],1),
         basis(self.processor.dims[1:],[0]*(self.processor.N-1)))
 
-    def generate_fock_state(self,fock_number):
+    def generate_fock_state(self,fock_number,detuning=0):
         '''
         simulation of using qubit phonon swap to generate phonon fock state
         '''
@@ -110,7 +110,7 @@ class Simulation():
         circuit = QubitCircuit((self.processor.N))
         for swap_t in self.swap_time_list[:fock_number]:
             circuit.add_gate("X_R", targets=0)
-            circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=swap_t)
+            circuit.add_gate('Z_R_GB',targets=[0,1],arg_value={'duration':swap_t,'detuning':detuning})
         if fock_number!=0:
             self.initial_state=self.run_circuit(circuit)
         print('fidelity of phonon fock {} :'.format(fock_number),expect(self.initial_state.ptrace(1),fock(self.processor.dims[1],fock_number)))
@@ -157,14 +157,14 @@ class Simulation():
         self.fit_result.append(self.fitter.fit_T1())
 
 
-    def phonon_rabi_measurement(self):
+    def phonon_rabi_measurement(self,detuning=0):
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='phonon rabi')
         i=0
         for t in tqdm(self.x_array):
             circuit = QubitCircuit((self.processor.N))
             circuit.add_gate("X_R", targets=0)
-            circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=t)
+            circuit.add_gate('Z_R_GB',targets=[0,1],arg_value={'duration':t,'detuning':detuning})
             self.post_process(circuit,i)
             i=i+1
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
