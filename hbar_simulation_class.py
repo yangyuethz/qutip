@@ -115,15 +115,6 @@ class Simulation():
             self.initial_state=self.run_circuit(circuit)
         print('fidelity of phonon fock {} :'.format(fock_number),expect(self.initial_state.ptrace(1),fock(self.processor.dims[1],fock_number)))
     
-    def qubit_pi_pulse(self):
-        '''
-        simulation of giving pi pulse on qubit
-        '''
-        # self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
-        circuit = QubitCircuit((self.processor.N))
-        circuit.add_gate("X_R", targets=0)
-        self.initial_state=self.run_circuit(circuit)
-
     def generate_coherent_state(self,phonon_drive_params=None):
         '''
         simulation of driving phonon mediated by qubit, expect a coherent state
@@ -134,8 +125,15 @@ class Simulation():
         circuit = QubitCircuit((self.processor.N))
         circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
         self.initial_state=self.run_circuit(circuit)
-    
-    
+
+    def qubit_pi_pulse(self):
+        '''
+        simulation of giving pi pulse on qubit
+        '''
+        # self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
+        circuit = QubitCircuit((self.processor.N))
+        circuit.add_gate("X_R", targets=0)
+        self.initial_state=self.run_circuit(circuit)
 
     def phonon_T1_measurement(self):
         '''
@@ -158,6 +156,10 @@ class Simulation():
 
 
     def phonon_rabi_measurement(self,detuning=0):
+        '''
+        simulation for qubit phonon rabi oscillation.
+        We excite qubit first, then put qubit and phonon on resonance. Sweeping resonance time and readout
+        '''
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='phonon rabi')
         i=0
@@ -171,6 +173,10 @@ class Simulation():
         self.fit_result.append(self.fitter.fit_phonon_rabi())
 
     def qubit_rabi_measurement(self,qubit_probe_params={}):
+        '''
+        This is qubit time domain rabi. We use gaussain square pulse to excite qubit while sweeping 
+        pulse length.
+        '''
         if not(qubit_probe_params=={}):
             self.qubit_probe_params=qubit_probe_params
         self.x_array=self.t_list
@@ -185,7 +191,12 @@ class Simulation():
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
         self.fit_result.append(self.fitter.fit_phonon_rabi())
     
-    def qubit_shift_wait(self,qubit_probe_params={},):
+    def qubit_shift_wait(self,qubit_probe_params={},if_fit=True):
+        '''
+        We want to see if there is any population in the phonone, how will it change
+        the qubit at different time. For a specific initial state, we put qubit closer to phonon, then just
+        wait for different time and readout qubit.
+        '''
         if not(qubit_probe_params=={}):
             self.qubit_probe_params=qubit_probe_params
         self.x_array=self.t_list
@@ -198,24 +209,33 @@ class Simulation():
             circuit.add_gate("XYZ_R_GB", targets=0,arg_value=self.qubit_probe_params)
             self.post_process(circuit,i)
             i=i+1
-        # self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
-        # self.fit_result.append(self.fitter.fit_phonon_rabi())
+        if if_fit:
+            self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+            self.fit_result.append(self.fitter.fit_phonon_rabi())
 
-    def qubit_ramsey_measurement(self,artificial_detuning=None,fit=True):
+    def qubit_ramsey_measurement(self,artificial_detuning=None,starkshift_amp=0,if_fit=True):
+        '''
+        This is for qubit ramsey measurement.
+        do a qubit half pi pulse first, then wait, and another half pi pulse. 
+        At the waiting time, we can also shift qubit to interaction point
+        '''
+
         self.x_array=self.t_list
         self.set_up_1D_experiment(title='qubit Ramsey')
         if not(artificial_detuning==None):
             self.artificial_detuning=artificial_detuning
         i=0
+        starkshift_param={'detuning':starkshift_amp}
         for t in tqdm(self.x_array):
             circuit = QubitCircuit((self.processor.N))
             circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
-            circuit.add_gate('Wait',targets=0,arg_value=t)
+            starkshift_param['duration']=t
+            circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=starkshift_param)
             circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
                 'rotate_direction':2*np.pi*self.artificial_detuning*t})
             self.post_process(circuit,i)
             i=i+1
-        if fit:
+        if if_fit:
             self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
             self.fit_result.append(self.fitter.fit_T2())
 
@@ -249,6 +269,7 @@ class Simulation():
             self.fit_wigner()
        
         self.x_array=np.linspace(-np.abs(self.alpha),np.abs(self.alpha),steps)
+        
         #set experiment up
         self.initial_state=stored_initial_state
         self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')

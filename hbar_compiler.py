@@ -51,7 +51,7 @@ def gauss_block_modulated_XY_rotate_compiler(gate,args):
 
 def gauss_rx_rz_compiler(gate, args):
     """
-    Compiler for the X-axis_Rotate gate, with a changable frequency shift.
+    Compiler for the XY-plane_Rotate gate, with a changable frequency shift.
     The propose of this gate is using probing qubit at certain interaction place (frequency),
     to separate state preparation and probing part, for better state preparation
     """
@@ -108,7 +108,7 @@ def starkshift_compiler(gate, args):
     targets = gate.targets  # target qubit
     parameters = args["params"]
     g= parameters["g"]  # find the coupling strength for the target qubit
-    gate_sigma =0.01
+    gate_sigma =0.02
     duration=gate.arg_value['duration']
     detuning=gate.arg_value.get('detuning',0)
     amplitude=parameters['phonon_omega_z'][targets[1]-1]+detuning*2*np.pi

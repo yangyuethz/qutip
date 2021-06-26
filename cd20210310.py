@@ -1,5 +1,6 @@
 #%%
 import enum
+from re import T
 from numpy.core.function_base import linspace
 from qutip.visualization import plot_fock_distribution
 from qutip.states import coherent
@@ -21,20 +22,23 @@ reload(hbar_simulation_class)
 #qubit dimission, we only consider g and e states here
 qubit_dim=2
 #phonon dimission
-phonon_dim=3
+phonon_dim=6
 #how many phonon modes we consider here
-phonon_num=2
+phonon_num=1
 #the frequency difference between qubit and phonon (qubit minus phonon)
-qubit_phonon_detuning=5968.6-5974.1
+qubit_freq=5970.04
+phonon_freq=5974.115
+qubit_phonon_detuning=qubit_freq-phonon_freq
 
 #dimission of the system, qubit dimission + phonons dimission
 dims=[qubit_dim]+[phonon_dim]*phonon_num
-#T1 list of the system
+#T1 list of the system 77
 t1=[11]+[77]*(phonon_num)
-#T2 list of the system
+#T2 list of the system 104
 t2=[12]+[104]*(phonon_num)
+
 #set up the processor and compiler,qb5d97 is the qubit we play around
-qb5d97_processor=hbar_processor.HBAR_processor((phonon_num+1),t1,t2,dims,g=[0.26,0.07],\
+qb5d97_processor=hbar_processor.HBAR_processor((phonon_num+1),t1,t2,dims,g=[0.2599,0.07],\
     rest_place=qubit_phonon_detuning,FSR=1.1)
 qb5d97_compiler = hbar_compiler.HBAR_Compiler(qb5d97_processor.num_qubits,\
     qb5d97_processor.params, qb5d97_processor.pulse_dict)
@@ -42,32 +46,48 @@ qb5d97_simulation=hbar_simulation_class.Simulation(qb5d97_processor,qb5d97_compi
 
 
 #the list of swap time between qubit and phonon for different Fock state
-qb5d97_simulation.swap_time_list=[0.9615913396391608,
-                                    0.679369013069411,
-                                    0.5548749387394517,
-                                    0.48045143954729463,
-                                    0.42939088344326864,
-                                    0.39660104948110375,
-                                    0.3688697372314131,
-                                    0.34540763247883866,
-                                    0.3257502876196255,0.30900063232085784]
+qb5d97_simulation.swap_time_list=[0.9620009872224587,
+ 0.6794930725222,
+ 0.5549324886188994,
+ 0.48034852042842774]
 #%%
 '''
 For higher order phonon rabi
 '''
-y_list=[]
-qb5d97_simulation.t_list=np.linspace(0.01,10,100)
-detuning_list=np.linspace(-0.1,0.1,21)
-for detuning in detuning_list:
-    qb5d97_simulation.generate_fock_state(0)
-    qb5d97_simulation.phonon_rabi_measurement(detuning=detuning)  
-    y_list.append(qb5d97_simulation.y_array)
-
+pi_time_list=[]
+for n in range(1):
+    qb5d97_simulation.t_list=np.linspace(0.01,10,100)
+    qb5d97_simulation.generate_fock_state(n)
+    qb5d97_simulation.phonon_rabi_measurement()  
+    pi_time_list.append(qb5d97_simulation.fit_result[-1]['swap_time'])
+    qb5d97_simulation.swap_time_list=pi_time_list
 #%%
-xx,yy=np.meshgrid(detuning_list,qb5d97_simulation.t_list)
-plt.pcolormesh(xx,yy,np.array(y_list).transpose())
-plt.ylabel('(us)')
-plt.xlabel('detuning(MHz)')
+'''
+ramsey numbersplitting
+'''
+interaction_1_freq=5972.2
+qb5d97_simulation.t_list=np.linspace(0.01,20,51)
+y_2d_list=[]
+for i in range(5):
+    qb5d97_simulation.ideal_phonon_fock(i)
+    qb5d97_simulation.qubit_ramsey_measurement(artificial_detuning=2.1212,
+    starkshift_amp=interaction_1_freq-phonon_freq,if_fit=False)
+    y_2d_list.append(qb5d97_simulation.y_array)
+
+figure, ax = plt.subplots(figsize=(8,6))
+for i in range(5):
+    ax.plot(qb5d97_simulation.t_list,y_2d_list[i],label='Fock{}'.format(i))
+plt.legend()
+#%%
+with_decay=y_2d_list
+#%%
+figure, ax = plt.subplots(figsize=(8,6))
+colors = plt.cm.jet(np.linspace(0.1,0.9,5))
+for i in range(5):
+    ax.plot(qb5d97_simulation.t_list,without_decay[i],'--',color=colors[i],label='without decay Fock{}'.format(i))
+    ax.plot(qb5d97_simulation.t_list,with_decay[i],'-',color=colors[i],label='with decay Fock{}'.format(i))
+plt.legend()
+
 #%%
 '''
 This part is for calibrating probe amplitude or pulse length,
@@ -83,7 +103,7 @@ for sweep_data in sweep_list:
     param_probe['Omega']=sweep_data
     param_probe['duration']=30
     qb5d97_simulation.ideal_phonon_fock(0)
-    param_probe['amplitude_starkshift']=5973.3-5968.6
+    param_probe['amplitude_starkshift']=interaction_1_freq-qubit_freq
     qb5d97_simulation.detuning_list=np.linspace(
         param_probe['amplitude_starkshift']-0.2,
         param_probe['amplitude_starkshift']+0.2,41)
@@ -98,16 +118,9 @@ figure.show()
 
 #%%
 '''
-numbersplitting experiment 
+fock state numbersplitting experiment 
 '''
 #define the parameter for drive the coherent state
-
-param_drive={'Omega':0.1,
-    'sigma':0.2,
-    'duration':10,
-    'rotate_direction':np.pi/4
-    }
-
 param_probe={'Omega':0.01,
     'sigma': 0.5,
     'duration':30,
@@ -115,38 +128,38 @@ param_probe={'Omega':0.01,
 
 #define the parameter for probing the qubit
 y_list=[]
-fock_number_list=range(4)
+fock_number_list=range(1,2)
 for fock_number in fock_number_list:
     qb5d97_simulation.generate_fock_state(fock_number)
     # qb5d97_simulation.ideal_phonon_fock(fock_number)
     # param_drive['detuning']=-qubit_phonon_detuning
     # qb5d97_simulation.generate_coherent_state(phonon_drive_params=param_drive)
-    param_probe['amplitude_starkshift']=5972.3-5968.6
+    param_probe['amplitude_starkshift']=interaction_1_freq-qubit_freq
     qb5d97_simulation.detuning_list=np.linspace(
-        param_probe['amplitude_starkshift']-0.6,
-        param_probe['amplitude_starkshift']+0.2,100)
+        param_probe['amplitude_starkshift']-0.3,
+        param_probe['amplitude_starkshift']+0.05,100)
     qb5d97_simulation.spec_measurement(param_probe)
     y_list.append(qb5d97_simulation.y_array)
+#plot multi peaks together
 figure,ax = plt.subplots(figsize=(8,6))
 for fock_number in fock_number_list:
     ax.plot(qb5d97_simulation.detuning_list ,y_list[fock_number],label='fock number={}'.format(fock_number))
 figure.legend()
 figure.show()
 # %%
-param_probe={'Omega':0,
-    'sigma': 0.5,
+NS_fitter=hbar_fitting.fitter(qb5d97_simulation.detuning_list,y_list[3])
+fit_result=NS_fitter.fit_multi_peak(4)
+# %%
+#coherent state generation
+param_drive={'Omega':0.06*8.1,
+    'sigma':0.5,
     'duration':14,
-    'amplitude_starkshift':0}
-param_probe['amplitude_starkshift']=5973.3-5968.6
-qb5d97_simulation.t_list=np.linspace(14,16,100)
-y_list=[]
-fock_number_list=range(4)
-for fock_number in fock_number_list:
-    qb5d97_simulation.generate_fock_state(fock_number)
-    qb5d97_simulation.qubit_shift_wait(param_probe)
-    y_list.append(qb5d97_simulation.y_array)
-figure,ax = plt.subplots(figsize=(8,6))
-for fock_number in fock_number_list:
-    ax.plot(qb5d97_simulation.t_list ,y_list[fock_number],label='fock number={}'.format(fock_number))
-figure.legend()
+    'rotate_direction':np.pi/4,
+    'detuning':-qubit_phonon_detuning
+    }
+qb5d97_simulation.generate_coherent_state(param_drive)
+qb5d97_simulation.fit_wigner()
+qt.plot_wigner(qb5d97_simulation.initial_state.ptrace(1))
+result=qb5d97_simulation.alpha
+abs(result)
 # %%

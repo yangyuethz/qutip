@@ -6,11 +6,13 @@ from qutip.qip.device.processor import Processor
 
 
 class HBAR_processor(Processor):
-    def __init__(self,N,t1,t2,dims,Omega=20,alpha=200,FSR=13,g=0.266,rest_place=6.5):
+    def __init__(self,N,t1,t2,dims,Omega=20,alpha=200,FSR=13,g=0.266,rest_place=6.5,coupling='full H'):
         super(HBAR_processor,self).__init__(N,t1,t2,dims)
+        self.coupling=coupling
         self.set_up_params(Omega,alpha,FSR,g,rest_place)
         self.set_up_ops()
         self.set_up_drift() 
+        
 
     def set_up_params(self, Omega,alpha,FSR,g,rest_place):
         self.params = {}
@@ -56,12 +58,18 @@ class HBAR_processor(Processor):
 
         #qubit phonon coupling
         for i in range(self.N-1):
-            self.add_drift(
-                self.params['g'][i]*(
-                    tensor(create(self.dims[0]),destroy(self.dims[i+1]))\
-                        +tensor(destroy(self.dims[0]),create(self.dims[i+1]))
-                        ),[0,i+1]
-                            )
+            if self.coupling=='full H':
+                self.add_drift(
+                    self.params['g'][i]*(
+                        tensor(create(self.dims[0]),destroy(self.dims[i+1]))\
+                            +tensor(destroy(self.dims[0]),create(self.dims[i+1]))
+                            ),[0,i+1]
+                                )
+            elif self.coupling=='dispersive H':
+                self.add_drift(
+                    self.params['g'][i]*(
+                        tensor(num(self.dims[0]),num(self.dims[i+1])
+                            )),[0,i+1])
 
         #add phonon frequency
         for i in range(self.N-1):

@@ -128,7 +128,7 @@ class fitter(object):
         #         peak_position.append(x_array[i])
 
         #define the peak fitting model
-        def add_peak(prefix, center, amplitude=0.3, sigma=0.1):
+        def add_peak(prefix, center, amplitude=0.3, sigma=0.05):
             peak = LorentzianModel(prefix=prefix)
             pars = peak.make_params()
             pars[prefix + 'center'].set(center)
@@ -140,7 +140,8 @@ class fitter(object):
         params = model.make_params(c=0)
         rough_peak_positions =peak_position
         for i, cen in enumerate(rough_peak_positions):
-            peak, pars = add_peak('lz%d' % (i), cen)
+            peak, pars = add_peak('lz%d' % (i), cen,amplitude=y_smooth[
+                max_point[np.argsort(y_smooth[max_point])[-peaks:]][i]])
             model = model + peak
             params.update(pars)
 
@@ -150,7 +151,7 @@ class fitter(object):
 
         fig,ax=plt.subplots()
         ax.plot(x_array, y_array, label='data')
-        ax.plot(x_array,y_smooth,label='smooth')
+        # ax.plot(x_array,y_smooth,label='smooth')
         ax.plot(x_array, result.best_fit, label='best fit')
 
         for name, comp in comps.items():
