@@ -31,6 +31,7 @@ class Simulation():
         self.swap_time_list=swap_time_list
         self.artificial_detuning=artificial_detuning
         self.reading_time=reading_time
+        self.calibration_phase=0
         self.fit_result=[]
         if not initial_state:
             self.initial_state=basis(self.processor.dims, [0]+[0]*(self.processor.N-1))
@@ -254,54 +255,57 @@ class Simulation():
         self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
 
 
-    def wigner_measurement_1D(self,phonon_drive_params=None,steps=40,
-    displacement_type='simulated',second_pulse_flip=False,set_alpha_range=None):
+    def wigner_measurement_1D(self,
+                             phonon_drive_params,
+                             starkshift_param,
+                             steps=40,
+                             phase_calibration=False,
+                             if_echo=False,
+                             starkshift_param_2=None
+                             ):
         '''
-        displacement_type can be choose as 'simulated' or 'ideal'
-        the second_pulse_flip is choose if the second half pi pulse change to opposite direction
+        this is 1D wigner tomography
         '''
         stored_initial_state=self.initial_state
-        if set_alpha_range:
-            self.alpha=set_alpha_range
-        else:
-            #calibration of the alpha axis based on wigner fitting
-            self.generate_coherent_state(phonon_drive_params)
-            self.fit_wigner()
-       
-        self.x_array=np.linspace(-np.abs(self.alpha),np.abs(self.alpha),steps)
-        
-        #set experiment up
+        self.generate_coherent_state(phonon_drive_params)
+        self.fit_wigner()
+        axis=np.linspace(-np.abs(self.alpha),np.abs(self.alpha),steps)
         self.initial_state=stored_initial_state
+        Omega_alpha_ratio=self.phonon_drive_params['Omega']/self.alpha
+        self.x_array=axis
         self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
-        Omega_max=self.phonon_drive_params['Omega']
-        Omega_list=np.linspace(0,Omega_max,steps)
-        
-        for i, alpha in enumerate(self.x_array):
-            self.phonon_drive_params['Omega']=Omega_list[i]
-            circuit = QubitCircuit((self.processor.N))
-            if displacement_type=='simulated':
+        i=0
+        if phase_calibration:
+            self.x_array=np.linspace(-2*np.pi,2*np.pi,30)
+            self.set_up_1D_experiment(title='wigner measurement phase calibration',xlabel='phase')
+            self.ideal_phonon_fock(0)
+            i=0
+            for second_phase in tqdm(self.x_array):
+                circuit = QubitCircuit((self.processor.N))
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+                circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=starkshift_param)
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
+                    'rotate_direction':second_phase})
+                self.post_process(circuit,i)
+                i=i+1
+            self.fitter=hbar_fitting.fitter(self.x_array,self.y_array)
+            self.fit_result.append(self.fitter.fit_phase_calibration())
+        else:
+            for y in tqdm(axis):
+                circuit = QubitCircuit((self.processor.N))
+                self.phonon_drive_params['Omega']=y*Omega_alpha_ratio
+                self.phonon_drive_params['rotate_direction']=0
                 circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
-            elif displacement_type=='ideal':
-                displacement_operator=tensor(qeye(self.processor.dims[0]),
-                qt.displace(self.processor.dims[1],alpha))
-                if self.initial_state.shape[1]==1:
-                    self.initial_state=displacement_operator*stored_initial_state
-                else:
-                    self.initial_state=displacement_operator*stored_initial_state*displacement_operator
-            else:
-                raise NameError('displacement type select wrong')
-            circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
-            circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
-            if second_pulse_flip:
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
+                circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=starkshift_param)
                 circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
-                'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time+np.pi})
-            else:
-                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
-                'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
-            self.post_process(circuit,i)
-            i=i+1
+                    'rotate_direction':self.calibration_phase})
+                self.post_process(circuit,i)
+                i=i+1
 
-    def wigner_measurement_2D(self,phonon_drive_params=None,steps=40):
+
+
+    def wigner_measurement_2D(self,phonon_drive_params,starkshift_param,steps=20,init_phase=0):
         '''
         steps is the number of the point in the ploting axis also the simulation times
         '''
@@ -312,30 +316,32 @@ class Simulation():
         self.initial_state=stored_initial_state
         Omega_alpha_ratio=self.phonon_drive_params['Omega']/self.alpha
         storage_list_2D=[]
+
         for x in tqdm(axis):
             self.x_array=axis
             self.set_up_1D_experiment(title='wigner measurement',xlabel='alpha')
             for i, y in enumerate(axis):
                 circuit = QubitCircuit((self.processor.N))
                 self.phonon_drive_params['Omega']=np.sqrt(x**2+y**2)*Omega_alpha_ratio
-                self.phonon_drive_params['rotate_direction']=np.angle(x+1j*y)+0.5*np.pi
+                self.phonon_drive_params['rotate_direction']=np.angle(x+1j*y)
                 circuit.add_gate("XY_R_GB", targets=0,arg_value=self.phonon_drive_params)
-                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2})
-                circuit.add_gate('Wait',targets=0,arg_value=self.reading_time)
                 circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
-                    'rotate_direction':2*np.pi*self.artificial_detuning*self.reading_time})
+                    'rotate_direction':init_phase})
+                circuit.add_gate('Z_R_GB',targets=[0,1],arg_value=starkshift_param)
+                circuit.add_gate("X_R", targets=0,arg_value={'rotate_phase':np.pi/2,\
+                    'rotate_direction':self.calibration_phase+init_phase})
                 self.post_process(circuit,i)
             storage_list_2D.append(self.y_array*2-1)
 
         xx,yy=np.meshgrid(axis,axis)
         plt.figure(figsize=(6,6))
-        plt.contourf(xx, yy, storage_list_2D,40,cmap='RdBu_r')
+        plt.contourf(xx, yy, storage_list_2D,40,cmap='seismic',vmin=-1, vmax=1)
         plt.gca().set_aspect('equal')
-        plt.colorbar().set_label("qubit")
-        plt.xlabel("x")
-        plt.ylabel("y")
+        plt.colorbar().set_label("parity")
+        plt.xlabel("I")
+        plt.ylabel("Q")
         plt.show()
-        return storage_list_2D
+        return (xx,yy,storage_list_2D)
     
     def fit_wigner(self):
         wigner_array=np.linspace(-10,10,201)
@@ -364,5 +370,9 @@ class Simulation():
         self.initial_state=self.run_circuit(circuit)
         qt.plot_wigner_fock_distribution(self.initial_state.ptrace(1))
         qt.plot_wigner_fock_distribution(self.initial_state.ptrace(0))
+
+    def plot_wigner(self):
+        phonon_state=self.initial_state.ptrace(1)
+        qt.plot_wigner(phonon_state)
 
 
